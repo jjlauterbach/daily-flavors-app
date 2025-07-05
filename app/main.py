@@ -27,70 +27,33 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 REQUEST_TIMEOUT = 30
 SELENIUM_WAIT_TIMEOUT = 10
 
-# Check for debug config
 def load_config():
     """Load configuration from YAML file or return defaults"""
-    default_config = {
-        'logging': {
-            'debug': False,
-            'level': 'INFO'
-        },
-        'scraping': {
-            'timeout': 30,
-            'selenium_timeout': 10,
-            'max_retries': 3
-        },
-        'app': {
-            'user_agent': USER_AGENT
-        }
-    }
-    
     config_file = os.path.join(os.path.dirname(__file__), 'config.yaml')
     if os.path.exists(config_file):
         try:
             with open(config_file, 'r') as f:
-                file_config = yaml.safe_load(f) or {}
-                # Merge with defaults (file config takes precedence)
-                return _merge_config(default_config, file_config)
+                return yaml.safe_load(f) or {}
         except (yaml.YAMLError, IOError) as e:
             print(f"Warning: Could not load config file: {e}")
     
-    return default_config
-
-def _merge_config(default, override):
-    """Recursively merge configuration dictionaries"""
-    result = default.copy()
-    for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _merge_config(result[key], value)
-        else:
-            result[key] = value
-    return result
-
-def is_debug_enabled():
-    """Check if debug logging is enabled via environment variable or config file"""
-    # Check environment variable first (highest priority)
-    if os.getenv('DEBUG', '').lower() in ('true', '1', 'yes', 'on'):
-        return True
-    
-    # Check config file
-    config = load_config()
-    return config.get('logging', {}).get('debug', False)
+    return {}
 
 # FastAPI app
 app = FastAPI()
 
-# Configure logging based on config
+# Configure logging
 config = load_config()
-debug_enabled = is_debug_enabled()
-log_level = logging.DEBUG if debug_enabled else logging.INFO
+
+# Set log level: DEBUG env var overrides config file
+log_level = logging.DEBUG if os.getenv('DEBUG', '').lower() in ('true', '1', 'yes', 'on') else \
+            getattr(logging, config.get('logging', {}).get('level', 'INFO').upper(), logging.INFO)
 
 logging.basicConfig(
     format='%(asctime)s %(name)s %(levelname)s %(message)s', 
     level=log_level
 )
 logger = logging.getLogger(__name__)
-logger.setLevel(log_level)
 
 # Disable SSL warnings for debugging
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -142,45 +105,50 @@ def daily_flavor(location, flavor, description=None):
     
 
 def scrape_bubbas():
-    """Scrape Bubba's Frozen Custard daily flavors using only Selenium"""
-    logger.info("🚀 BUBBAS: Starting scrape (Selenium only)...")
+    """Scrape Bubba's Frozen Custard daily flavors using Selenium"""
+    logger.info("🚀 BUBBAS: Starting scrape...")
     url = 'https://www.bubbasfrozencustard.com/'
     
-    # Use only Selenium for Bubba's due to React/PopMenu structure
+    # Use Selenium for Bubba's because its using bot detection
     html = get_html_selenium(url)
     if html is None:
         logger.error("❌ BUBBAS: Failed to get HTML with Selenium")
         return []
 
-    # Parse modern PopMenu React site structure
-    flavors = _parse_bubbas_modern_site(html)
-    if not flavors:
-        logger.warning("⚠️ BUBBAS: Could not parse any flavors from site")
-    else:
-        logger.info(f"✅ BUBBAS: Found {len(flavors)} flavor(s)")
-    
-    return flavors
-
-
-def _parse_bubbas_modern_site(html):
-    """Parse the modern PopMenu React-based site for Bubba's daily flavors"""
     try:
-        apollo_state = _extract_apollo_state(html)
+        # Extract Apollo GraphQL state from HTML scripts
+        apollo_state = None
+        scripts = html.find_all('script')
+        
+        for script in scripts:
+            if not script.string or 'window.POPMENU_APOLLO_STATE' not in script.string:
+                continue
+                
+            # Extract JSON from JavaScript assignment
+            match = re.search(r'window\.POPMENU_APOLLO_STATE\s*=\s*({.*?});', 
+                             script.string, re.DOTALL)
+            if match:
+                try:
+                    apollo_state = json.loads(match.group(1))
+                    logger.debug("Successfully parsed Apollo state JSON")
+                    break
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse Apollo state JSON: {e}")
+        
         if not apollo_state:
+            logger.debug("Could not find or parse Apollo state data")
             return []
         
+        # Search for today's flavor in calendar events
         flavors = []
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         
-        # Search for calendar events
         for value in apollo_state.values():
             if not isinstance(value, dict):
                 continue
                 
-            typename = value.get('__typename', '')
-            
             # Check calendar events for today's flavor
-            if typename == 'CalendarEvent':
+            if value.get('__typename') == 'CalendarEvent':
                 event_date = value.get('eventDate', '')
                 if event_date.startswith(today):
                     flavor_name = value.get('name', '')
@@ -189,35 +157,16 @@ def _parse_bubbas_modern_site(html):
                         logger.info(f"🍨 BUBBAS: Found today's flavor: {flavor_name}")
                         flavors.append(daily_flavor('Bubbas', flavor_name, flavor_description))
         
+        if not flavors:
+            logger.warning("⚠️ BUBBAS: Could not parse any flavors from site")
+        else:
+            logger.info(f"✅ BUBBAS: Found {len(flavors)} flavor(s)")
+        
         return flavors
         
     except Exception as e:
-        logger.error(f"Error parsing modern Bubbas site: {e}")
+        logger.error(f"❌ BUBBAS: Error parsing site: {e}")
         return []
-
-
-
-def _extract_apollo_state(html):
-    """Extract Apollo GraphQL state from HTML scripts"""
-    scripts = html.find_all('script')
-    
-    for script in scripts:
-        if not script.string or 'window.POPMENU_APOLLO_STATE' not in script.string:
-            continue
-            
-        # Extract JSON from JavaScript assignment
-        match = re.search(r'window\.POPMENU_APOLLO_STATE\s*=\s*({.*?});', 
-                         script.string, re.DOTALL)
-        if match:
-            try:
-                apollo_state = json.loads(match.group(1))
-                logger.debug("Successfully parsed Apollo state JSON")
-                return apollo_state
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse Apollo state JSON: {e}")
-    
-    logger.debug("Could not find or parse Apollo state data")
-    return None
 
 def scrape_culvers():
     """Scrape multiple Culver's locations"""
