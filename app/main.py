@@ -196,71 +196,40 @@ def _scrape_culvers_location(url):
     """Scrape a single Culver's location"""
     html = get_html(url)
     
-    # Look for today's flavor in the new site structure
-    # Try multiple selectors to find the flavor name
-    flavor = None
-    description = None
-    
-    # Method 1: Look for flavor links with text content
+    # Look for flavor links
     flavor_links = html.find_all('a', href=lambda x: x and '/flavor-of-the-day/' in x)
     for link in flavor_links:
-        if link.string and link.string.strip():
-            flavor = link.string.strip()
-            break
-    
-    # Method 2: Look for h2 headings that might contain flavor names
-    if not flavor:
-        h2_elements = html.find_all('h2')
-        for h2 in h2_elements:
-            if h2.string and h2.string.strip() and h2.string.strip() not in ['Closed - Opens 10:00 AM', 'RESTAURANT CALENDAR']:
-                text = h2.string.strip()
-                # Skip common non-flavor headings
-                if not any(skip in text.lower() for skip in ['closed', 'open', 'calendar', 'contact', 'what flavor']):
-                    flavor = text
-                    break
-    
-    # Method 3: Look for any element with "Flavor of the Day:" text
-    if not flavor:
-        flavor_text_elements = html.find_all(text=lambda text: text and 'Flavor of the Day:' in text)
-        for element in flavor_text_elements:
-            # Find the next sibling or parent that contains the flavor name
-            parent = element.parent
-            if parent and parent.find('a'):
-                link = parent.find('a')
-                if link.string:
-                    flavor = link.string.strip()
-                    break
-    
-    # If we found a flavor, try to get its description by visiting the flavor detail page
-    if flavor:
-        try:
-            # The flavor links follow a pattern like /flavor-of-the-day/chocolate-heath-crunch
-            flavor_slug = flavor.lower().replace(' ', '-').replace('®', '').replace('&', 'and')
-            detail_url = f"https://www.culvers.com/flavor-of-the-day/{flavor_slug}"
-            detail_html = get_html(detail_url)
+        text = link.get_text().strip()
+        if text:  # Found a link with actual flavor text
+            # Try to get description from the flavor detail page
+            description = "No description available"
+            try:
+                href = link.get('href', '')
+                if href and href.startswith('/'):
+                    detail_url = f"https://www.culvers.com{href}"
+                    detail_html = get_html(detail_url)
+                    if detail_html:
+                        # Look for the specific Culver's description div
+                        desc_div = detail_html.find('div', class_=lambda x: x and 'FlavorOfTheDayDetails_containerPrimaryContentDescription' in x)
+                        if desc_div:
+                            desc_text = desc_div.get_text().strip()
+                            if desc_text:
+                                description = desc_text
+                        
+                        # Fallback: look for any div with 'description' in the class name
+                        if description == "No description available":
+                            desc_divs = detail_html.find_all('div', class_=lambda x: x and 'description' in x.lower())
+                            for div in desc_divs:
+                                desc_text = div.get_text().strip()
+                                if desc_text and 30 < len(desc_text) < 400:
+                                    description = desc_text
+                                    break
+            except Exception as e:
+                logger.debug(f"Could not fetch description for {text}: {e}")
             
-            if detail_html:
-                # Look for description in the detail page
-                desc_elements = detail_html.find_all(['p', 'div'], class_=lambda x: x and 'description' in x.lower())
-                for elem in desc_elements:
-                    if elem.string and len(elem.string.strip()) > 20:  # Reasonable description length
-                        description = elem.string.strip()
-                        break
-                
-                # Fallback: look for any paragraph with substantial text
-                if not description:
-                    paragraphs = detail_html.find_all('p')
-                    for p in paragraphs:
-                        if p.string and len(p.string.strip()) > 30:
-                            description = p.string.strip()
-                            break
-        except Exception as e:
-            logger.debug(f"Could not fetch description for {flavor}: {e}")
+            return text, description
     
-    if not flavor:
-        raise Exception("Could not find today's flavor on the page")
-    
-    return flavor, description or "No description available"
+    raise Exception("Could not find today's flavor on the page")
 
 
 def scrape_oscars():
