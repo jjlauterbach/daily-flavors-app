@@ -608,44 +608,9 @@ def _get_html_attempt(url, attempt):
                 logger.warning(f"403 Forbidden on attempt {attempt + 1}")
                 return None
             elif _is_valid_response(resp):
-                # Try multiple encoding strategies
-                try:
-                    # Force the encoding to be detected properly
-                    resp.encoding = resp.apparent_encoding if resp.apparent_encoding else 'utf-8'
-                    logger.debug(f"Using encoding: {resp.encoding}")
-                    
-                    html = BeautifulSoup(resp.text, 'html.parser')
-                    
-                    # Quick test to see if content looks reasonable
-                    test_text = html.get_text()[:500]  # First 500 chars
-                    if test_text.count('�') < 10:  # If not too many replacement chars
-                        return html
-                    else:
-                        logger.debug("Text encoding still corrupted, trying raw content")
-                        raise UnicodeError("Still corrupted")
-                        
-                except (UnicodeDecodeError, UnicodeError, LookupError):
-                    # If encoding fails, try with raw content and different parsers
-                    logger.debug("Encoding failed, trying raw content with different approaches")
-                    
-                    # Try different parsers and encoding hints
-                    for parser in ['html.parser', 'lxml', 'html5lib']:
-                        try:
-                            html = BeautifulSoup(resp.content, parser)
-                            test_text = html.get_text()[:500]
-                            if test_text.count('�') < 10:  # If looks reasonable
-                                logger.debug(f"Success with parser: {parser}")
-                                return html
-                        except:
-                            continue
-                    
-                    # Last resort: try to decode manually
-                    try:
-                        content = resp.content.decode('utf-8', errors='ignore')
-                        return BeautifulSoup(content, 'html.parser')
-                    except:
-                        logger.debug("All encoding attempts failed")
-                        return None
+                # Parse HTML content
+                html = BeautifulSoup(resp.text, 'html.parser')
+                return html
             else:
                 logger.error(f"Invalid response: status={resp.status_code}")
                 return None
