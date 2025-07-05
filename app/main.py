@@ -236,191 +236,59 @@ def scrape_oscars():
     """Scrape Oscar's Frozen Custard"""
     logger.info("🚀 OSCARS: Starting scrape...")
     
-    # Try regular requests with improved encoding handling
     html = get_html('https://www.oscarscustard.com/', use_selenium_fallback=False)
-    
-    # Check if we got valid content
-    if html is None:
-        logger.warning("⚠️ OSCARS: Regular request failed, will try alternative approach")
-        # Try once more with a different user agent or approach
-        html = get_html('https://www.oscarscustard.com/', max_retries=1, use_selenium_fallback=False)
-    
     if html is None:
         logger.error("❌ OSCARS: Failed to get HTML content")
         return []
     
-    # Check if content still looks corrupted
-    page_text = html.get_text()
-    replacement_char_count = page_text.count('�')
-    if replacement_char_count > 50:  # If still very corrupted
-        logger.warning(f"⚠️ OSCARS: Content still appears corrupted ({replacement_char_count} replacement chars), but proceeding...")
-    
     try:
-        # Try multiple methods to find the flavor
-        flavor = None
-        
-        # Method 0: Look for any text containing today's date and a colon (most robust)
+        # Generate today's date patterns for matching
         today = datetime.datetime.now()
         date_patterns = [
-            today.strftime("%A, %B %d").upper(),  # "SATURDAY, JULY 5"
-            today.strftime("%A, %B %-d").upper(), # "SATURDAY, JULY 5" (no leading zero) 
-            today.strftime("%A, %B %d"),          # "Saturday, July 5"
-            today.strftime("%A, %B %-d"),         # "Saturday, July 5" (no leading zero)
+            today.strftime("%A, %B %d").upper(),   # "SATURDAY, JULY 5"
+            today.strftime("%A, %B %-d").upper(),  # "SATURDAY, JULY 5" (no leading zero)
+            today.strftime("%A, %B %d"),           # "Saturday, July 5"
+            today.strftime("%A, %B %-d"),          # "Saturday, July 5" (no leading zero)
         ]
         
+        # Primary method: Look for h5 elements with date/flavor format
+        h5_elements = html.find_all('h5')
+        for h5 in h5_elements:
+            text = h5.get_text().strip()
+            if not text or ':' not in text:
+                continue
+                
+            # Check if this h5 contains today's date pattern
+            for pattern in date_patterns:
+                if pattern in text:
+                    parts = text.split(':')
+                    if len(parts) >= 2:
+                        flavor = parts[-1].strip()
+                        if flavor:
+                            logger.info(f"🍨 OSCARS: Found flavor: {flavor}")
+                            return [daily_flavor('Oscars', flavor)]
+        
+        # Fallback method: Look for any text containing today's date and a colon
         for pattern in date_patterns:
-            # Look for any element containing this date pattern followed by a colon
             elements = html.find_all(text=lambda text: text and pattern in text and ':' in text)
             for element in elements:
                 text = element.strip()
                 if ':' in text:
                     parts = text.split(':')
                     if len(parts) >= 2:
-                        potential_flavor = parts[-1].strip()
-                        if potential_flavor:  # Make sure we found something
-                            flavor = potential_flavor
-                            logger.debug(f"Found flavor via date pattern '{pattern}': {flavor}")
-                            break
-            if flavor:
-                break
+                        flavor = parts[-1].strip()
+                        if flavor:
+                            logger.info(f"🍨 OSCARS: Found flavor: {flavor}")
+                            return [daily_flavor('Oscars', flavor)]
         
-        # Method 1: Look for h5 elements with flavor information
-        h5_elements = html.find_all('h5')
-        for h5 in h5_elements:
-            text = h5.get_text().strip()
-            if text and ':' in text:
-                # Format: "SATURDAY, JULY 5: GRASSHOPPER PIE"
-                parts = text.split(':')
-                if len(parts) >= 2:
-                    flavor = parts[-1].strip()
-                    logger.debug(f"Found flavor via h5 method: {flavor}")
-                    break
+        # If we reach here, no flavor was found
+        logger.debug("Could not find today's flavor. Available h5 elements:")
+        for i, h5 in enumerate(h5_elements[:5]):
+            text = h5.get_text().strip() if h5.get_text() else 'No text'
+            logger.debug(f"  h5[{i}]: '{text}'")
         
-        # Method 2: Look for any element containing today's date pattern
-        if not flavor:
-            today = datetime.datetime.now()
-            day_patterns = [
-                today.strftime("%A, %B %d").upper(),  # "SATURDAY, JULY 5"
-                today.strftime("%A, %B %-d").upper(), # "SATURDAY, JULY 5" (no leading zero)
-                today.strftime("%A, %B %d"),          # "Saturday, July 5"
-                today.strftime("%A, %B %-d"),         # "Saturday, July 5" (no leading zero)
-            ]
-            
-            for pattern in day_patterns:
-                elements = html.find_all(text=lambda text: text and pattern in text)
-                for element in elements:
-                    if ':' in element:
-                        parts = element.split(':')
-                        if len(parts) >= 2:
-                            flavor = parts[-1].strip()
-                            break
-                if flavor:
-                    break
+        raise Exception("Could not find today's flavor on the page")
         
-        # Method 3: Look for elements with "FLAVOR OF THE DAY" context
-        if not flavor:
-            flavor_section = html.find(text=lambda text: text and 'FLAVOR OF THE DAY' in text)
-            if flavor_section:
-                # Look for siblings or nearby elements that might contain the flavor
-                parent = flavor_section.parent
-                if parent:
-                    # Look for h5 elements in the same section
-                    nearby_h5 = parent.find_next_siblings('h5')
-                    for h5 in nearby_h5[:3]:  # Check first 3 siblings
-                        text = h5.get_text().strip()
-                        if text and ':' in text:
-                            parts = text.split(':')
-                            if len(parts) >= 2:
-                                flavor = parts[-1].strip()
-                                logger.debug(f"Found flavor via nearby h5: {flavor}")
-                                break
-        
-        # Method 4: Look for any h5 element that contains a colon (likely date: flavor format)
-        if not flavor:
-            h5_elements = html.find_all('h5')
-            for h5 in h5_elements:
-                if h5.get_text() and ':' in h5.get_text():
-                    text = h5.get_text().strip()
-                    # Look for patterns like "SATURDAY, JULY 5: GRASSHOPPER PIE"
-                    if any(day in text.upper() for day in ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']):
-                        parts = text.split(':')
-                        if len(parts) >= 2:
-                            flavor = parts[-1].strip()
-                            logger.debug(f"Found flavor via day pattern: {flavor}")
-                            break
-        
-        # Method 5: Look for the old selector as a fallback, but more defensively
-        if not flavor:
-            try:
-                flavor_elements = html.select('div .et_pb_text_inner h5')
-                for elem in flavor_elements:
-                    if elem.get_text() and ':' in elem.get_text():
-                        text = elem.get_text().strip()
-                        parts = text.split(':')
-                        if len(parts) >= 2:
-                            flavor = parts[-1].strip()
-                            logger.debug(f"Found flavor via old selector: {flavor}")
-                            break
-            except Exception as e:
-                logger.debug(f"Old selector method failed: {e}")
-        
-        # Method 6: As a last resort, search the raw HTML content for known patterns
-        if not flavor:
-            try:
-                # Get the raw HTML content as a string and search for flavor patterns
-                page_html = str(html)
-                
-                # Look for common flavor names that might be visible even in corrupted content
-                common_flavors = [
-                    'GRASSHOPPER PIE', 'VANILLA', 'CHOCOLATE', 'STRAWBERRY', 'MINT CHIP',
-                    'COOKIES AND CREAM', 'BUTTER PECAN', 'ROCKY ROAD', 'CARAMEL',
-                    'PEANUT BUTTER', 'OREO', 'BIRTHDAY CAKE', 'CHERRY', 'LEMON'
-                ]
-                
-                # Look for patterns like ": FLAVOR_NAME" in the raw HTML
-                import re
-                for flavor_name in common_flavors:
-                    # Look for patterns like ": GRASSHOPPER PIE" or ">SATURDAY, JULY 5: GRASSHOPPER PIE<"
-                    patterns = [
-                        rf':\s*{re.escape(flavor_name)}',
-                        rf'JULY\s+5.*?:\s*{re.escape(flavor_name)}',
-                        rf'SATURDAY.*?:\s*{re.escape(flavor_name)}',
-                    ]
-                    
-                    for pattern in patterns:
-                        matches = re.findall(pattern, page_html, re.IGNORECASE)
-                        if matches:
-                            flavor = flavor_name
-                            logger.debug(f"Found flavor via raw HTML pattern search: {flavor}")
-                            break
-                    
-                    if flavor:
-                        break
-                        
-            except Exception as e:
-                logger.debug(f"Raw HTML pattern search failed: {e}")
-        
-        if flavor:
-            logger.info(f"🍨 OSCARS: Found flavor: {flavor}")
-            return [daily_flavor('Oscars', flavor)]
-        else:
-            # Log some debugging info to help understand the page structure
-            logger.debug("Could not find flavor. Available h5 elements:")
-            h5_elements = html.find_all('h5')
-            for i, h5 in enumerate(h5_elements[:10]):  # Log first 10 h5 elements
-                text = h5.get_text().strip() if h5.get_text() else 'No text'
-                logger.debug(f"  h5[{i}]: '{text}'")
-            
-            # Also check for any text containing "GRASSHOPPER PIE" or today's date
-            logger.debug("Searching for any text containing colon or flavor patterns...")
-            all_text_with_colon = html.find_all(text=lambda text: text and ':' in text)
-            for i, text in enumerate(all_text_with_colon[:10]):
-                cleaned_text = text.strip()
-                if cleaned_text:
-                    logger.debug(f"  colon_text[{i}]: '{cleaned_text}'")
-            
-            raise Exception("Could not find today's flavor on the page")
-            
     except Exception as e:
         logger.error(f"❌ OSCARS: Failed to parse flavor: {e}")
         return []
