@@ -1,0 +1,17 @@
+# Daily Flavors Scraper Configuration
+
+# Logging configuration
+logging:
+  debug: false  # Set to true for verbose debug logging
+  level: INFO   # Can be DEBUG, INFO, WARNING, ERROR
+
+# Scraping configuration
+scraping:
+  timeout: 30           # HTTP request timeout in seconds
+  selenium_timeout: 10  # Selenium wait timeout in seconds
+  max_retries: 3        # Maximum retry attempts for failed requests
+
+# Application configuration
+app:
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+
