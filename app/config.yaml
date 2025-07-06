@@ -4,5 +4,5 @@
 logging:
   root: INFO
   loggers:
-    app.main: INFO
+    app: INFO
 

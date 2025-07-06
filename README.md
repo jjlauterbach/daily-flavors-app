@@ -1,6 +1,6 @@
 # Daily Flavors App 🍦
 
-A web scraper application that collects daily flavor information from frozen custard shops near Pewaukee Wisconsin. Built with FastAPI and deployed using Docker.
+A web scraper application that collects daily flavor information from frozen custard shops.
 
 ## Supported Locations
 
