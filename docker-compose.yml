@@ -8,3 +8,6 @@ services:
         - action: sync+restart
           path: ./app
           target: /code/app
+        - action: sync+restart
+          path: ./static
+          target: /code/static

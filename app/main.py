@@ -5,13 +5,17 @@ import datetime
 import logging
 import time
 import random
+import requests
 import urllib3
 import json
 import re
 import os
 import yaml
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from requests import Session
 from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
@@ -27,6 +31,8 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 REQUEST_TIMEOUT = 30
 SELENIUM_WAIT_TIMEOUT = 10
 
+
+
 def load_config():
     """Load configuration from YAML file or return defaults"""
     config_file = os.path.join(os.path.dirname(__file__), 'config.yaml')
@@ -40,20 +46,36 @@ def load_config():
     return {}
 
 # FastAPI app
-app = FastAPI()
+app = FastAPI(title="Wisconsin Daily Flavors API", description="Get daily custard flavors from Wisconsin shops")
+
+# Configure static file serving
+static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static')
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Configure logging
 config = load_config()
 
-# Set log level: DEBUG env var overrides config file
-log_level = logging.DEBUG if os.getenv('DEBUG', '').lower() in ('true', '1', 'yes', 'on') else \
-            getattr(logging, config.get('logging', {}).get('level', 'INFO').upper(), logging.INFO)
+log_level = getattr(logging, config.get('logging', {}).get('root', 'INFO').upper())
 
 logging.basicConfig(
     format='%(asctime)s %(name)s %(levelname)s %(message)s', 
     level=log_level
 )
+loggers = config.get('logging', {}).get('loggers', {})
+for logger_name, logger_level in loggers.items():
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(getattr(logging, logger_level.upper(), logging.INFO))
 logger = logging.getLogger(__name__)
+
+# Optional import for enhanced bot protection bypass
+try:
+    import undetected_chromedriver as uc
+    UC_AVAILABLE = True
+    logger.debug("undetected-chromedriver available for enhanced bot protection bypass")
+except ImportError:
+    UC_AVAILABLE = False
+    logger.warning("undetected-chromedriver not available, using standard Selenium only")
 
 # Disable SSL warnings for debugging
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -63,8 +85,36 @@ session = Session()
 session.headers.update({'User-Agent': USER_AGENT})
 
 
+def get_central_time():
+    """Get current datetime in US Central Time (America/Chicago)"""
+    return datetime.datetime.now(ZoneInfo('America/Chicago'))
+
+
+def get_central_date_string():
+    """Get current date string in US Central Time (YYYY-MM-DD format)"""
+    return get_central_time().strftime('%Y-%m-%d')
+
+
 @app.get("/")
 async def root():
+    """Redirect to web UI for easier access"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui")
+
+@app.get("/ui")
+async def web_ui():
+    """Serve the web UI"""
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static')
+    index_file = os.path.join(static_dir, 'index.html')
+    
+    if os.path.exists(index_file):
+        return FileResponse(index_file, media_type='text/html')
+    else:
+        return {"message": f"Web UI not found. Looking for: {index_file}"}
+
+@app.get("/api/flavors")
+async def get_flavors():
+    """API endpoint for flavors (alternative to root)"""
     return scrape_all()
   
   
@@ -99,23 +149,44 @@ def daily_flavor(location, flavor, description=None):
         'location': location,
         'flavor': flavor,
         'description': description,
-        'date': datetime.datetime.today().strftime('%Y-%m-%d')
+        'date': get_central_date_string()
     }
 
     
 
 def scrape_bubbas():
-    """Scrape Bubba's Frozen Custard daily flavors using Selenium"""
+    """Scrape Bubba's Frozen Custard daily flavors"""
     logger.info("🚀 BUBBAS: Starting scrape...")
     url = 'https://www.bubbasfrozencustard.com/'
     
-    # Use Selenium for Bubba's because its using bot detection
-    html = get_html_selenium(url)
-    if html is None:
-        logger.error("❌ BUBBAS: Failed to get HTML with Selenium")
+    html = None
+    
+    # Try undetected Chrome first for better bot protection bypass
+    try:
+        html = get_html_selenium_undetected(url)
+        if html:
+            logger.debug("BUBBAS: Successfully got content with undetected Chrome")
+    except Exception as e:
+        logger.debug(f"BUBBAS: Undetected Chrome failed: {e}")
+    
+    # Fallback to regular Selenium
+    if not html:
+        html = get_html_selenium(url)
+    
+    # If both automated methods failed, return empty
+    if not html:
+        logger.error("❌ BUBBAS: Failed to get HTML with automated methods")
         return []
 
     try:
+        # Check for bot protection patterns
+        page_text = html.get_text().lower()
+        bot_indicators = ["cloudflare", "access denied", "checking your browser", "challenge"]
+        
+        if any(indicator in page_text for indicator in bot_indicators):
+            logger.warning("⚠️ BUBBAS: Bot protection detected, unable to proceed")
+            return []
+
         # Extract Apollo GraphQL state from HTML scripts
         apollo_state = None
         scripts = html.find_all('script')
@@ -130,18 +201,17 @@ def scrape_bubbas():
             if match:
                 try:
                     apollo_state = json.loads(match.group(1))
-                    logger.debug("Successfully parsed Apollo state JSON")
                     break
                 except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse Apollo state JSON: {e}")
+                    logger.warning(f"BUBBAS: Failed to parse Apollo state JSON: {e}")
         
         if not apollo_state:
-            logger.debug("Could not find or parse Apollo state data")
+            logger.warning("⚠️ BUBBAS: Could not find Apollo state data")
             return []
         
         # Search for today's flavor in calendar events
         flavors = []
-        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        today = get_central_date_string()
         
         for value in apollo_state.values():
             if not isinstance(value, dict):
@@ -150,6 +220,7 @@ def scrape_bubbas():
             # Check calendar events for today's flavor
             if value.get('__typename') == 'CalendarEvent':
                 event_date = value.get('eventDate', '')
+                
                 if event_date.startswith(today):
                     flavor_name = value.get('name', '')
                     flavor_description = value.get('description', '')
@@ -235,62 +306,97 @@ def _scrape_culvers_location(url):
 def scrape_oscars():
     """Scrape Oscar's Frozen Custard"""
     logger.info("🚀 OSCARS: Starting scrape...")
-    
-    html = get_html('https://www.oscarscustard.com/', use_selenium_fallback=False)
-    if html is None:
-        logger.error("❌ OSCARS: Failed to get HTML content")
-        return []
-    
+    chrome_options = _get_chrome_options()
     try:
-        # Generate today's date patterns for matching
-        today = datetime.datetime.now()
-        date_patterns = [
-            today.strftime("%A, %B %d").upper(),   # "SATURDAY, JULY 5"
-            today.strftime("%A, %B %-d").upper(),  # "SATURDAY, JULY 5" (no leading zero)
-            today.strftime("%A, %B %d"),           # "Saturday, July 5"
-            today.strftime("%A, %B %-d"),          # "Saturday, July 5" (no leading zero)
-        ]
-        
-        # Primary method: Look for h5 elements with date/flavor format
-        h5_elements = html.find_all('h5')
-        for h5 in h5_elements:
-            text = h5.get_text().strip()
-            if not text or ':' not in text:
-                continue
-                
-            # Check if this h5 contains today's date pattern
-            for pattern in date_patterns:
-                if pattern in text:
-                    parts = text.split(':')
-                    if len(parts) >= 2:
-                        flavor = parts[-1].strip()
-                        if flavor:
-                            logger.info(f"🍨 OSCARS: Found flavor: {flavor}")
-                            return [daily_flavor('Oscars', flavor)]
-        
-        # Fallback method: Look for any text containing today's date and a colon
-        for pattern in date_patterns:
-            elements = html.find_all(text=lambda text: text and pattern in text and ':' in text)
-            for element in elements:
-                text = element.strip()
-                if ':' in text:
-                    parts = text.split(':')
-                    if len(parts) >= 2:
-                        flavor = parts[-1].strip()
-                        if flavor:
-                            logger.info(f"🍨 OSCARS: Found flavor: {flavor}")
-                            return [daily_flavor('Oscars', flavor)]
-        
-        # If we reach here, no flavor was found
-        logger.debug("Could not find today's flavor. Available h5 elements:")
-        for i, h5 in enumerate(h5_elements[:5]):
-            text = h5.get_text().strip() if h5.get_text() else 'No text'
-            logger.debug(f"  h5[{i}]: '{text}'")
-        
-        raise Exception("Could not find today's flavor on the page")
-        
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+        except Exception:
+            service = Service("/usr/local/bin/chromedriver")
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+            'source': 'Object.defineProperty(navigator, "webdriver", {get: () => undefined});'
+        })
+        driver.set_window_size(1920, 1080)
+        url = 'https://www.oscarscustard.com/index.php/flavors'
+        driver.get(url)
+        WebDriverWait(driver, SELENIUM_WAIT_TIMEOUT).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        time.sleep(3)
+        # Find today's date in the calendar (e.g., 'Sun 6')
+        today = get_central_time()
+        today_day = today.day
+        today_weekday = today.strftime("%a")  # e.g., 'Sun'
+        today_display = f"{today_weekday} {today_day}"
+        # Find the calendar row for today
+        calendar_xpath = f"//table//tr[td[contains(text(), '{today_display}')]]"
+        calendar_rows = driver.find_elements(By.XPATH, calendar_xpath)
+        if not calendar_rows:
+            logger.warning(f"OSCARS: Could not find calendar row for {today_display}")
+            driver.quit()
+            return []
+        row = calendar_rows[0]
+        # Find the flavor link in the row
+        flavor_link = None
+        for link in row.find_elements(By.TAG_NAME, "a"):
+            if link.is_displayed():
+                flavor_link = link
+                break
+        if not flavor_link:
+            logger.warning("OSCARS: Could not find flavor link for today")
+            driver.quit()
+            return []
+        expected_flavor = flavor_link.text.strip()
+        logger.info(f"OSCARS: Clicking flavor link: {expected_flavor}")
+        driver.execute_script("arguments[0].click();", flavor_link)
+        time.sleep(2)
+        # Find the open overlay/modal (look for .divioverlay-open)
+        overlay = None
+        overlays = driver.find_elements(By.XPATH, "//*[contains(@class, 'divioverlay-open')]")
+        for o in overlays:
+            if o.is_displayed():
+                overlay = o
+                break
+        if not overlay:
+            logger.warning("OSCARS: Could not find open overlay/modal after click")
+            driver.quit()
+            return []
+        overlay_html = overlay.get_attribute("innerHTML")
+        soup = BeautifulSoup(overlay_html, 'html.parser')
+        # Find the flavor name in <h4>
+        flavor_tag = soup.find('h4')
+        flavor_name = flavor_tag.get_text(strip=True) if flavor_tag else expected_flavor
+        # Find the description: next <span>, <div>, or <p> after <h4>
+        description = None
+        if flavor_tag:
+            # Look for next tag with text
+            next_tag = flavor_tag.find_next(['span', 'div', 'p'])
+            while next_tag:
+                desc_text = next_tag.get_text(strip=True)
+                if desc_text and len(desc_text) > 10 and desc_text.upper() != flavor_name.upper():
+                    description = desc_text
+                    break
+                next_tag = next_tag.find_next(['span', 'div', 'p'])
+        if not description:
+            # Fallback: find the longest <span> or <div> with food words
+            desc_candidates = []
+            for tag in soup.find_all(['span', 'div', 'p']):
+                t = tag.get_text(strip=True)
+                if t and len(t) > 10 and t.upper() != flavor_name.upper():
+                    desc_candidates.append(t)
+            if desc_candidates:
+                description = max(desc_candidates, key=len)
+        driver.quit()
+        logger.info(f"OSCARS: Flavor: {flavor_name}")
+        logger.info(f"OSCARS: Description: {description}")
+        return [daily_flavor('Oscars', flavor_name, description)]
     except Exception as e:
-        logger.error(f"❌ OSCARS: Failed to parse flavor: {e}")
+        logger.error(f"OSCARS: Scraper failed: {e}")
+        if 'driver' in locals():
+            try:
+                driver.quit()
+            except:
+                pass
         return []
 
 
@@ -449,11 +555,19 @@ def get_html_selenium(url):
     chrome_options = _get_chrome_options()
     
     try:
-        service = Service("/usr/local/bin/chromedriver")
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+        # Try to create Chrome driver, fallback to explicit service path if needed
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+        except Exception:
+            service = Service("/usr/local/bin/chromedriver")
+            driver = webdriver.Chrome(service=service, options=chrome_options)
         
-        # Remove webdriver property to avoid detection
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        # Basic anti-detection
+        driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+            'source': 'Object.defineProperty(navigator, "webdriver", {get: () => undefined});'
+        })
+        
+        driver.set_window_size(1920, 1080)
         
         logger.debug(f"Loading {url}")
         driver.get(url)
@@ -463,37 +577,73 @@ def get_html_selenium(url):
             EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
         
-        # Log page info
-        title = driver.title
-        logger.debug(f"Page title: {title}")
-        
-        # Check for bot detection
-        page_source = driver.page_source.lower()
-        if any(term in page_source for term in ["cloudflare", "access denied", "forbidden"]):
-            logger.warning("Detected bot protection page")
-        
         # Wait for dynamic content
-        time.sleep(random.uniform(3, 6))
+        time.sleep(5)
         
-        # Wait for specific content to load
-        try:
-            WebDriverWait(driver, SELENIUM_WAIT_TIMEOUT).until(
-                lambda d: (d.find_elements(By.CLASS_NAME, "pm-calendar-events") or 
-                          "flavor" in d.page_source.lower() or
-                          d.find_elements(By.TAG_NAME, "h1"))
-            )
-            logger.debug("Page content loaded successfully")
-        except:
-            logger.warning("Timeout waiting for page content")
+        # Check for bot protection and wait if needed
+        page_source = driver.page_source.lower()
+        if any(indicator in page_source for indicator in ["cloudflare", "access denied", "checking your browser"]):
+            logger.warning("Bot protection detected, waiting...")
+            time.sleep(15)
         
-        html_content = driver.page_source
-        logger.debug(f"Retrieved {len(html_content)} characters")
+        final_source = driver.page_source
+        logger.debug(f"Retrieved {len(final_source)} characters of HTML")
         
         driver.quit()
-        return BeautifulSoup(html_content, 'html.parser')
+        return BeautifulSoup(final_source, 'html.parser')
         
     except Exception as e:
         logger.error(f"Selenium request failed for {url}: {e}")
+        if 'driver' in locals():
+            try:
+                driver.quit()
+            except:
+                pass
+        return None
+
+
+def get_html_selenium_undetected(url):
+    """Get HTML using undetected-chromedriver for better bot protection bypass"""
+    if not UC_AVAILABLE:
+        logger.debug("Undetected Chrome not available, skipping")
+        return None
+        
+    logger.debug("Starting undetected Chrome browser")
+    
+    try:
+        # Configure undetected Chrome options for Docker environment
+        options = uc.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-web-security")
+        options.add_argument("--disable-features=VizDisplayCompositor")
+        options.add_argument("--single-process")  # For Docker stability
+        
+        # Create undetected Chrome instance
+        driver = uc.Chrome(options=options, version_main=None, driver_executable_path="/usr/local/bin/chromedriver")
+        
+        logger.debug(f"Loading {url} with undetected Chrome")
+        driver.get(url)
+        
+        # Wait for page load
+        WebDriverWait(driver, SELENIUM_WAIT_TIMEOUT).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        
+        # Wait for dynamic content
+        time.sleep(10)
+        
+        # Get final page content
+        final_source = driver.page_source
+        logger.debug(f"Retrieved {len(final_source)} characters with undetected Chrome")
+        
+        driver.quit()
+        return BeautifulSoup(final_source, 'html.parser')
+        
+    except Exception as e:
+        logger.error(f"Undetected Chrome request failed for {url}: {e}")
         if 'driver' in locals():
             try:
                 driver.quit()
@@ -514,5 +664,9 @@ def _get_chrome_options():
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
-    options.add_argument("--remote-debugging-port=9222")
+    options.add_argument("--single-process")
+    
     return options
+
+
+

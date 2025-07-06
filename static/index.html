@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Flavors</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-ice-cream"></i> Daily Flavors</h1>
+                <p class="subtitle">Fresh custard flavors from your favorite shops</p>
+                <div class="date" id="currentDate"></div>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>Fetching today's delicious flavors...</p>
+            </div>
+
+            <div class="error" id="error" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Oops! Something went wrong</h3>
+                <p id="errorMessage"></p>
+                <button onclick="loadFlavors()" class="retry-btn">
+                    <i class="fas fa-redo"></i> Try Again
+                </button>
+            </div>
+
+            <div class="flavors-grid" id="flavorsGrid">
+                <!-- Flavor cards will be inserted here -->
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2025 Daily Flavors | Made with ❤️ for custard lovers</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

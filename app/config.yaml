@@ -2,5 +2,7 @@
 
 # Logging configuration
 logging:
-  level: INFO   # Can be DEBUG, INFO, WARNING, ERROR
+  root: INFO
+  loggers:
+    app.main: DEBUG
 
