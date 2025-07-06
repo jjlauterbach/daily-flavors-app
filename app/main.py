@@ -122,7 +122,6 @@ def scrape_all():
 
     flavors = []
     scrapers = [
-        scrape_bubbas,
         scrape_culvers,
         scrape_kopps,
         scrape_murfs,
@@ -151,93 +150,6 @@ def daily_flavor(location, flavor, description=None):
         'description': description,
         'date': get_central_date_string()
     }
-
-    
-
-def scrape_bubbas():
-    """Scrape Bubba's Frozen Custard daily flavors"""
-    logger.info("🚀 BUBBAS: Starting scrape...")
-    url = 'https://www.bubbasfrozencustard.com/'
-    
-    html = None
-    
-    # Try undetected Chrome first for better bot protection bypass
-    try:
-        html = get_html_selenium_undetected(url)
-        if html:
-            logger.debug("BUBBAS: Successfully got content with undetected Chrome")
-    except Exception as e:
-        logger.debug(f"BUBBAS: Undetected Chrome failed: {e}")
-    
-    # Fallback to regular Selenium
-    if not html:
-        html = get_html_selenium(url)
-    
-    # If both automated methods failed, return empty
-    if not html:
-        logger.error("❌ BUBBAS: Failed to get HTML with automated methods")
-        return []
-
-    try:
-        # Check for bot protection patterns
-        page_text = html.get_text().lower()
-        bot_indicators = ["cloudflare", "access denied", "checking your browser", "challenge"]
-        
-        if any(indicator in page_text for indicator in bot_indicators):
-            logger.warning("⚠️ BUBBAS: Bot protection detected, unable to proceed")
-            return []
-
-        # Extract Apollo GraphQL state from HTML scripts
-        apollo_state = None
-        scripts = html.find_all('script')
-        
-        for script in scripts:
-            if not script.string or 'window.POPMENU_APOLLO_STATE' not in script.string:
-                continue
-                
-            # Extract JSON from JavaScript assignment
-            match = re.search(r'window\.POPMENU_APOLLO_STATE\s*=\s*({.*?});', 
-                             script.string, re.DOTALL)
-            if match:
-                try:
-                    apollo_state = json.loads(match.group(1))
-                    break
-                except json.JSONDecodeError as e:
-                    logger.warning(f"BUBBAS: Failed to parse Apollo state JSON: {e}")
-        
-        if not apollo_state:
-            logger.warning("⚠️ BUBBAS: Could not find Apollo state data")
-            return []
-        
-        # Search for today's flavor in calendar events
-        flavors = []
-        today = get_central_date_string()
-        
-        for value in apollo_state.values():
-            if not isinstance(value, dict):
-                continue
-                
-            # Check calendar events for today's flavor
-            if value.get('__typename') == 'CalendarEvent':
-                event_date = value.get('eventDate', '')
-                
-                if event_date.startswith(today):
-                    flavor_name = value.get('name', '')
-                    flavor_description = value.get('description', '')
-                    if flavor_name:
-                        logger.info(f"🍨 BUBBAS: Found today's flavor: {flavor_name}")
-                        flavors.append(daily_flavor('Bubbas', flavor_name, flavor_description))
-        
-        if not flavors:
-            logger.warning("⚠️ BUBBAS: Could not parse any flavors from site")
-        else:
-            logger.info(f"✅ BUBBAS: Found {len(flavors)} flavor(s)")
-        
-        return flavors
-        
-    except Exception as e:
-        logger.error(f"❌ BUBBAS: Error parsing site: {e}")
-        return []
 
 def scrape_culvers():
     """Scrape multiple Culver's locations"""
@@ -650,7 +562,6 @@ def get_html_selenium_undetected(url):
             except:
                 pass
         return None
-
 
 def _get_chrome_options():
     """Configure Chrome options for Selenium"""
