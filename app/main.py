@@ -10,6 +10,9 @@ from app.scrapers.culvers import scrape_culvers
 from app.scrapers.kopps import scrape_kopps
 from app.scrapers.murfs import scrape_murfs
 from app.scrapers.oscars import scrape_oscars
+from datetime import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
+import threading
 
 
 def load_config():
@@ -69,10 +72,23 @@ async def web_ui():
     else:
         return {"message": f"Web UI not found. Looking for: {index_file}"}
 
+# Daily cache for flavors
+flavors_cache = {
+    'date': None,  # YYYY-MM-DD string
+    'data': None
+}
+
 @app.get("/api/flavors")
 async def get_flavors():
-    """API endpoint for flavors (alternative to root)"""
-    return scrape_all()
+    """API endpoint for flavors (alternative to root) with daily cache"""
+    today = datetime.now().strftime('%Y-%m-%d')
+    if flavors_cache['date'] == today and flavors_cache['data'] is not None:
+        return flavors_cache['data']
+    # Refresh cache
+    data = scrape_all()
+    flavors_cache['date'] = today
+    flavors_cache['data'] = data
+    return data
 
 
 def scrape_all():
@@ -94,6 +110,28 @@ def _safe_add_flavors(flavors, scraper_fn):
         flavors.extend(scraper_fn())
     except Exception as err:
         logger.error(f"Scraping error in {scraper_fn.__name__}", exc_info=err)
+
+
+def refresh_flavors_cache():
+    today = datetime.now().strftime('%Y-%m-%d')
+    logger.info(f"Refreshing flavors cache for {today}")
+    data = scrape_all()
+    flavors_cache['date'] = today
+    flavors_cache['data'] = data
+
+# Preload cache on startup
+refresh_flavors_cache()
+
+# Schedule daily cache refresh at configured time
+def schedule_cache_refresh():
+    refresh_time = config.get('cache_refresh_time', '08:00')
+    hour, minute = map(int, refresh_time.split(':'))
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(refresh_flavors_cache, 'cron', hour=hour, minute=minute)
+    scheduler.start()
+    logger.info(f"Scheduled daily cache refresh at {refresh_time}")
+
+schedule_cache_refresh()
 
 
 

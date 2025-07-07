@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
-from app.scrapers.utils import get_central_time, daily_flavor, _get_chrome_options
+from app.scrapers.utils import get_central_time, daily_flavor, _get_chrome_options, get_central_date_string
 
 logger = logging.getLogger(__name__)
 SELENIUM_WAIT_TIMEOUT = 10
@@ -90,7 +90,7 @@ def scrape_oscars():
         driver.quit()
         logger.info(f"OSCARS: Flavor: {flavor_name}")
         logger.info(f"OSCARS: Description: {description}")
-        return [daily_flavor('Oscars', flavor_name, description)]
+        return [daily_flavor('Oscars', flavor_name, description, get_central_date_string())]
     except Exception as e:
         logger.error(f"OSCARS: Scraper failed: {e}")
         if driver is not None:

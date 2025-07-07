@@ -10,20 +10,20 @@ const currentDateEl = document.getElementById('currentDate');
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-    setCurrentDate();
     loadFlavors();
 });
 
 // Set current date in header
-function setCurrentDate() {
+function setCurrentDateToLocal() {
+    // Use US Central time for consistency with backend
     const now = new Date();
-    const options = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-    };
-    currentDateEl.textContent = now.toLocaleDateString('en-US', options);
+    // Convert to US Central time string (YYYY-MM-DD)
+    const centralOffset = -5 * 60; // UTC-5 for CDT, UTC-6 for CST (not handling DST here)
+    const local = new Date(now.getTime() + (now.getTimezoneOffset() + centralOffset) * 60000);
+    const yyyy = local.getFullYear();
+    const mm = String(local.getMonth() + 1).padStart(2, '0');
+    const dd = String(local.getDate()).padStart(2, '0');
+    currentDateEl.textContent = `${yyyy}-${mm}-${dd}`;
 }
 
 // Load flavors from API
@@ -47,6 +47,9 @@ async function loadFlavors() {
             showError('No flavors found for today. Please try again later.');
             return;
         }
+        
+        // Set the header date to the local date (US Central)
+        setCurrentDateToLocal();
         
         displayFlavors(flavors);
         
@@ -126,18 +129,7 @@ function createFlavorCard(flavor) {
 
 // Format date for display
 function formatDate(dateString) {
-    try {
-        const date = new Date(dateString);
-        const options = { 
-            weekday: 'short',
-            month: 'short', 
-            day: 'numeric',
-            year: 'numeric'
-        };
-        return date.toLocaleDateString('en-US', options);
-    } catch (error) {
-        return dateString; // Fallback to original string
-    }
+    return dateString || '';
 }
 
 // Escape HTML to prevent XSS

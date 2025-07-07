@@ -12,6 +12,22 @@ def scrape_kopps():
     if not flavors_section:
         logger.warning("⚠️ KOPPS: Could not find wp-block-todays-flavors section")
         return flavors
+
+    # Extract the date from the h2 inside the flavors section
+    date_str = None
+    heading = flavors_section.find('h2')
+    if heading and heading.text:
+        import re
+        # Accept various apostrophes and whitespace
+        match = re.search(r"TODAY[’'`sS]* FLAVORS\s*[–-]\s*(.+)", heading.text, re.IGNORECASE)
+        if match:
+            date_str = match.group(1).strip()
+            logger.info(f"📅 KOPPS: Found date: {date_str}")
+        else:
+            logger.warning(f"⚠️ KOPPS: Could not extract date from heading text: {heading.text}")
+    else:
+        logger.warning("⚠️ KOPPS: Could not find heading for today's flavors")
+
     flavor_divs = flavors_section.find_all('div', class_='mw-100')
     for flavor_div in flavor_divs:
         h3_elements = flavor_div.find_all('h3')
@@ -26,7 +42,7 @@ def scrape_kopps():
                         description = desc_text
                 if flavor_name and len(flavor_name) > 2:
                     logger.info(f"🍨 KOPPS: Found flavor: {flavor_name}")
-                    flavors.append(daily_flavor('Kopps', flavor_name, description or ""))
+                    flavors.append(daily_flavor('Kopps', flavor_name, description or "", date_str))
     if flavors:
         logger.info(f"✅ KOPPS: Completed - found {len(flavors)} flavor(s)")
     else:
