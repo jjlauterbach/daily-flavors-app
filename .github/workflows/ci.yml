@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pip dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+      - name: Lint with flake8
+        run: flake8 app tests
+      - name: Security audit with pip-audit
+        run: pip-audit
+      - name: Check formatting with black
+        run: black --check app tests
+      - name: Check import sorting with isort
+        run: isort --check-only app tests
+      - name: Run tests with coverage
+        run: pytest --cov=app --cov-report=term-missing
+

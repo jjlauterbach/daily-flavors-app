@@ -1,10 +1,11 @@
 # pytest plugin to bring up the app in Docker before running tests
-import pytest
 import subprocess
 import time
+
 import requests
 
 TIMEOUT = 60  # seconds
+
 
 def pytest_sessionstart(session):
     # Start docker-compose up in detached mode
@@ -24,10 +25,11 @@ def pytest_sessionstart(session):
             time.sleep(1)
         else:
             raise RuntimeError("App did not start in Docker within timeout")
-    except Exception as e:
+    except Exception:
         # Always tear down docker-compose if startup fails
         subprocess.run(["docker-compose", "down"], check=False)
         raise
+
 
 def pytest_sessionfinish(session, exitstatus):
     # Tear down docker-compose after tests

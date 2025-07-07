@@ -1,3 +1,13 @@
 # Add test dependencies for running the new tests
 pytest
+pytest-cov
+selenium
+flake8
+black
+isort
+autoflake
+pip-audit
+pre-commit
+# Optionally add mypy if you want type checking
+# mypy
 beautifulsoup4
