@@ -12,3 +12,4 @@ pre-commit
 # Optionally add mypy if you want type checking
 # mypy
 beautifulsoup4
+urllib3>=2.5.0
