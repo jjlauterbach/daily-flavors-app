@@ -1,15 +1,20 @@
 # Daily Flavors App 🍦
 
-A web scraper application that collects daily flavor information from frozen custard shops.
+A web scraper application that collects daily flavor information from frozen custard shops and displays them in a modern web UI.
 
 ## Supported Locations
 
-- **Bubba's Frozen Custard**
 - **Culver's**
 - **Kopp's Frozen Custard**
 - **Oscar's Frozen Custard**
 - **Murf's Frozen Custard**
 
+## Features
+- Robust scrapers for each shop, extracting date, flavor, and description
+- Modern UI with date-anchored cards
+- Automated tests (unit, integration, and Selenium UI)
+- CI/CD with linting, formatting, security, and coverage checks
+- Pre-commit hooks for code quality
 
 ## Quick Start
 
@@ -23,8 +28,8 @@ cd daily-flavors-app
 # Build and run with Docker Compose
 docker-compose up --build
 
-# Access the API
-curl http://localhost:8080
+# Access the app in your browser
+open http://localhost:8080
 ```
 
 ### Local Development
@@ -36,9 +41,9 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
-# Install Chrome and ChromeDriver (for Selenium)
-# On macOS with Homebrew:
+# Install Chrome and ChromeDriver (for Selenium UI tests)
 brew install --cask google-chrome
 brew install chromedriver
 
@@ -46,6 +51,28 @@ brew install chromedriver
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
+## Testing & Quality
+
+- **Run all tests (including Selenium UI):**
+  ```bash
+  pytest
+  ```
+- **Run pre-commit hooks manually:**
+  ```bash
+  pre-commit run --all-files
+  ```
+- **Install pre-commit hooks locally:**
+  ```bash
+  pre-commit install
+  ```
+- **Lint, format, and security checks:**
+  - `flake8`, `black`, `isort`, `autoflake`, `pip-audit` are all run in CI and pre-commit
+
+## Continuous Integration
+
+- GitHub Actions workflow runs on PRs and main branch:
+  - Linting, formatting, security audit, and test coverage
+  - Brings up the app in Docker and runs Selenium UI tests
 
 ## Configuration
 
@@ -105,6 +132,7 @@ docker-compose up --build
    ```bash
    # Ensure all dependencies are installed
    pip install -r requirements.txt
+   pip install -r requirements-dev.txt
    ```
 
 3. **Encoding issues**
@@ -114,4 +142,9 @@ docker-compose up --build
 4. **Site structure changes**
    - Enable debug logging to inspect HTML structure
    - Update selectors in the relevant scraper function
+
+## Contributing
+
+- Please run pre-commit and all tests before submitting a PR.
+- All code is auto-formatted and linted in CI.
 
