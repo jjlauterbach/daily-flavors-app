@@ -3,6 +3,7 @@ pytest
 pytest-cov
 selenium
 flake8
+flake8-pyproject
 black
 isort
 autoflake
