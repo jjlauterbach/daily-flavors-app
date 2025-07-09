@@ -31,21 +31,27 @@ def scrape_kopps():
     else:
         logger.warning("⚠️ KOPPS: Could not find heading for today's flavors")
 
-    flavor_divs = flavors_section.find_all("div", class_="mw-100")
-    for flavor_div in flavor_divs:
-        h3_elements = flavor_div.find_all("h3")
-        for h3 in h3_elements:
-            if h3.string:
-                flavor_name = h3.string.strip()
-                description = ""
-                p_tag = flavor_div.find("p")
-                if p_tag:
-                    desc_text = p_tag.get_text().strip() if p_tag.get_text() else ""
-                    if desc_text and len(desc_text) > 5:
-                        description = desc_text
-                if flavor_name and len(flavor_name) > 2:
-                    logger.info(f"🍨 KOPPS: Found flavor: {flavor_name}")
-                    flavors.append(daily_flavor("Kopps", flavor_name, description or "", date_str))
+    # NEW: Find all h3 tags in the flavors_section, regardless of parent
+    h3_elements = flavors_section.find_all("h3")
+    for h3 in h3_elements:
+        flavor_name = h3.get_text(strip=True)
+        # Skip section headers like "Shake of the Month" and "Sundae of the Month"
+        if any(
+            skip in flavor_name.lower() for skip in ["shake of the month", "sundae of the month"]
+        ):
+            continue
+        description = ""
+        # Look for the next sibling <p> as the description, but don't require it
+        p_tag = h3.find_next_sibling()
+        while p_tag and p_tag.name != "p" and p_tag.name is not None:
+            p_tag = p_tag.find_next_sibling()
+        if p_tag and p_tag.name == "p":
+            desc_text = p_tag.get_text().strip() if p_tag.get_text() else ""
+            if desc_text and len(desc_text) > 5:
+                description = desc_text
+        if flavor_name and len(flavor_name) > 2:
+            logger.info(f"🍨 KOPPS: Found flavor: {flavor_name}")
+            flavors.append(daily_flavor("Kopps", flavor_name, description or "", date_str))
     if flavors:
         logger.info(f"✅ KOPPS: Completed - found {len(flavors)} flavor(s)")
     else:
