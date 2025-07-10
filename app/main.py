@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.scrapers.bubbas import scrape_bubbas
 from app.scrapers.culvers import scrape_culvers
 from app.scrapers.kopps import scrape_kopps
 from app.scrapers.murfs import scrape_murfs
@@ -85,7 +86,7 @@ async def get_flavors():
 
 def scrape_all():
     flavors = []
-    scrapers = [scrape_culvers, scrape_kopps, scrape_murfs, scrape_oscars]
+    scrapers = [scrape_culvers, scrape_kopps, scrape_murfs, scrape_oscars, scrape_bubbas]
     for scraper in scrapers:
         _safe_add_flavors(flavors, scraper)
     return flavors
