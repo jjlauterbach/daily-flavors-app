@@ -10,6 +10,8 @@ CULVERS_LOCATIONS = [
     ("Culvers (Waukesha Main St)", "https://www.culvers.com/restaurants/waukesha-hwy-164"),
     ("Culvers (Waukesha Grandview)", "https://www.culvers.com/restaurants/waukesha-grandview"),
     ("Culvers (Sussex)", "https://www.culvers.com/restaurants/sussex"),
+    ("Culvers (Elm Grove)", "https://www.culvers.com/restaurants/elm-grove-wi"),
+    ("Culvers (124th)", "https://www.culvers.com/restaurants/brookfield-124th"),
 ]
 
 
