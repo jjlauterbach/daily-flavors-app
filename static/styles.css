@@ -150,6 +150,9 @@ body {
     display: flex;
     flex-direction: column;
     height: 100%;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeInUp 0.6s ease forwards;
 }
 
 .flavor-card::before {
@@ -228,27 +231,6 @@ body {
     margin-right: 0.5rem;
 }
 
-/* Shop-specific styling */
-.flavor-card[data-shop="bubbas"] .shop-icon {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-}
-
-.flavor-card[data-shop="culvers"] .shop-icon {
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-}
-
-.flavor-card[data-shop="kopps"] .shop-icon {
-    background: linear-gradient(135deg, #10b981, #059669);
-}
-
-.flavor-card[data-shop="murfs"] .shop-icon {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-}
-
-.flavor-card[data-shop="oscars"] .shop-icon {
-    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-}
-
 /* Footer */
 .footer {
     background: rgba(0, 0, 0, 0.2);
@@ -256,6 +238,24 @@ body {
     text-align: center;
     padding: 2rem;
     backdrop-filter: blur(10px);
+}
+
+/* Flavor card link styles */
+.flavor-card-link {
+    cursor: pointer;
+    box-shadow: 0 20px 40px rgba(102, 126, 234, 0.08), 0 1.5px 4px rgba(118, 75, 162, 0.08);
+    transition: transform 0.12s cubic-bezier(.4,2,.6,1), box-shadow 0.12s cubic-bezier(.4,2,.6,1), filter 0.12s cubic-bezier(.4,2,.6,1), background 0.12s cubic-bezier(.4,2,.6,1);
+    will-change: transform, box-shadow, filter, background;
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.flavor-card-link:hover, .flavor-card-link:focus {
+    background: rgb(224, 211, 255); /* subtle light purple */
+}
+
+.flavor-card-link:active {
+    transform: scale(0.95) rotate(1deg);
+    filter: brightness(0.96);
 }
 
 /* Responsive design */

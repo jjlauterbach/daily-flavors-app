@@ -17,6 +17,7 @@ from app.scrapers.utils import (
 
 logger = logging.getLogger(__name__)
 SELENIUM_WAIT_TIMEOUT = 10
+OSCARS_URL = "https://www.oscarscustard.com/index.php/flavors"
 
 
 def scrape_oscars():
@@ -35,7 +36,7 @@ def scrape_oscars():
             {"source": 'Object.defineProperty(navigator, "webdriver", {get: () => undefined});'},
         )
         driver.set_window_size(1920, 1080)
-        url = "https://www.oscarscustard.com/index.php/flavors"
+        url = OSCARS_URL
         driver.get(url)
         WebDriverWait(driver, SELENIUM_WAIT_TIMEOUT).until(
             EC.presence_of_element_located((By.TAG_NAME, "body"))
@@ -99,7 +100,15 @@ def scrape_oscars():
         driver.quit()
         logger.info(f"OSCARS: Flavor: {flavor_name}")
         logger.info(f"OSCARS: Description: {description}")
-        return [daily_flavor("Oscars", flavor_name, description, get_central_date_string())]
+        return [
+            daily_flavor(
+                "Oscars",
+                flavor_name,
+                description,
+                get_central_date_string(),
+                url=OSCARS_URL,
+            )
+        ]
     except Exception as e:
         logger.error(f"OSCARS: Scraper failed: {e}")
         if driver is not None:

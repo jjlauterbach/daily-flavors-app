@@ -5,29 +5,24 @@ from zoneinfo import ZoneInfo
 
 from app.scrapers.utils import daily_flavor, get_html
 
+CULVERS_LOCATIONS = [
+    ("Culvers (Capital)", "https://www.culvers.com/restaurants/brookfield-capitol"),
+    ("Culvers (Waukesha Main St)", "https://www.culvers.com/restaurants/waukesha-hwy-164"),
+    ("Culvers (Waukesha Grandview)", "https://www.culvers.com/restaurants/waukesha-grandview"),
+    ("Culvers (Sussex)", "https://www.culvers.com/restaurants/sussex"),
+]
+
 
 def scrape_culvers():
     """Scrape multiple Culver's locations"""
     logger = logging.getLogger(__name__)
     logger.info("🚀 CULVERS: Starting scrape of all locations...")
-    locations = [
-        ("Culvers (Capital)", "https://www.culvers.com/restaurants/brookfield-capitol"),
-        (
-            "Culvers (Waukesha Main St)",
-            "https://www.culvers.com/restaurants/waukesha-hwy-164",
-        ),
-        (
-            "Culvers (Waukesha Grandview)",
-            "https://www.culvers.com/restaurants/waukesha-grandview",
-        ),
-        ("Culvers (Sussex)", "https://www.culvers.com/restaurants/sussex"),
-    ]
     flavors = []
-    for name, url in locations:
+    for name, url in CULVERS_LOCATIONS:
         try:
             logger.info(f"📍 CULVERS: Scraping {name}...")
             flavor, description, flavor_date = _scrape_culvers_location(url)
-            flavors.append(daily_flavor(name, flavor, description, flavor_date))
+            flavors.append(daily_flavor(name, flavor, description, flavor_date, url=url))
             logger.info(f"🍨 CULVERS: {name} - {flavor} ({flavor_date})")
         except Exception as e:
             logger.error(f"❌ CULVERS: Failed to scrape {name}: {e}")

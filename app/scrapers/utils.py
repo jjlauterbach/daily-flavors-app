@@ -29,8 +29,14 @@ def get_central_date_string():
     return get_central_time().strftime("%Y-%m-%d")
 
 
-def daily_flavor(location, flavor, description=None, date=None):
-    return {"location": location, "flavor": flavor, "description": description or "", "date": date}
+def daily_flavor(location, flavor, description=None, date=None, url=None):
+    return {
+        "location": location,
+        "flavor": flavor,
+        "description": description or "",
+        "date": date,
+        "url": url,
+    }
 
 
 def get_html(url, max_retries=3, use_selenium_fallback=True):

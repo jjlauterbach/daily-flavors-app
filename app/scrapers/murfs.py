@@ -6,12 +6,14 @@ from app.scrapers.utils import daily_flavor, get_html
 
 logger = logging.getLogger(__name__)
 
+MURFS_URL = "https://www.murfsfrozencustard.com/flavorForecast"
+
 
 def scrape_murfs():
     """Scrape Murf's Frozen Custard"""
     logger.info("🚀 MURFS: Starting scrape...")
     try:
-        html = get_html("https://www.murfsfrozencustard.com/flavorForecast")
+        html = get_html(MURFS_URL)
         # Find the date string in the subDateSpan (e.g., 'Sunday, Jul. 06')
         date_span = html.find("span", {"class": "subDateSpan"})
         flavor_date = None
@@ -43,14 +45,23 @@ def scrape_murfs():
                     central_now = datetime.datetime.now(ZoneInfo("America/Chicago"))
                     year = central_now.year
                     flavor_date = f"{year:04d}-{month:02d}-{int(day_str):02d}"
-        flavor = html.find("span", {"class": "flavorOfDayWhiteSpan"}).string.strip()
+        flavor_name = html.find("span", {"class": "flavorOfDayWhiteSpan"}).string.strip()
         # Grab the description from the .flavorDescriptionSpan
         desc_tag = html.find("span", {"class": "flavorDescriptionSpan"})
         description = desc_tag.get_text(strip=True) if desc_tag else None
         logger.info(
-            f"🍨 MURFS: Found flavor: {flavor} for date: {flavor_date} (US Central) desc: {description}"
+            f"🍨 MURFS: Found flavor: {flavor_name} for date: {flavor_date} (US Central) desc: {description}"
         )
-        return [daily_flavor("Murfs", flavor, description=description, date=flavor_date)]
+        if flavor_name and len(flavor_name) > 2:
+            return [
+                daily_flavor(
+                    "Murfs",
+                    flavor_name,
+                    description or "",
+                    flavor_date,
+                    url=MURFS_URL,
+                )
+            ]
     except Exception as e:
         logger.error(f"❌ MURFS: Failed to parse flavor: {e}")
-        return []
+    return []

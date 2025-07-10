@@ -4,11 +4,13 @@ from app.scrapers.utils import daily_flavor, get_html
 
 logger = logging.getLogger(__name__)
 
+KOPPS_URL = "https://www.kopps.com/"
+
 
 def scrape_kopps():
     """Scrape Kopp's Frozen Custard"""
     logger.info("🚀 KOPPS: Starting scrape...")
-    html = get_html("https://www.kopps.com/")
+    html = get_html(KOPPS_URL)
     flavors = []
     flavors_section = html.find("div", class_="wp-block-todays-flavors")
     if not flavors_section:
@@ -51,7 +53,9 @@ def scrape_kopps():
                 description = desc_text
         if flavor_name and len(flavor_name) > 2:
             logger.info(f"🍨 KOPPS: Found flavor: {flavor_name}")
-            flavors.append(daily_flavor("Kopps", flavor_name, description or "", date_str))
+            flavors.append(
+                daily_flavor("Kopps", flavor_name, description or "", date_str, url=KOPPS_URL)
+            )
     if flavors:
         logger.info(f"✅ KOPPS: Completed - found {len(flavors)} flavor(s)")
     else:

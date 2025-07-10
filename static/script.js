@@ -93,16 +93,32 @@ function displayFlavors(flavors) {
 function createFlavorCard(flavor) {
     const card = document.createElement('div');
     card.className = 'flavor-card';
-    
+
     // Format description
     const description = flavor.description && flavor.description.trim() && 
                        flavor.description !== 'No description available' 
                        ? flavor.description 
                        : null;
-    
+
     // Format date
     const date = formatDate(flavor.date);
-    
+
+    // Make the card clickable if a URL is present
+    if (flavor.url) {
+        card.classList.add('flavor-card-link');
+        card.tabIndex = 0;
+        card.setAttribute('role', 'link');
+        card.setAttribute('aria-label', `Go to ${flavor.location} website`);
+        card.addEventListener('click', (e) => {
+            window.open(flavor.url, '_blank');
+        });
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                window.open(flavor.url, '_blank');
+            }
+        });
+    }
+
     card.innerHTML = `
         <div class="shop-header">
             <div class="shop-icon">
@@ -110,20 +126,16 @@ function createFlavorCard(flavor) {
             </div>
             <div class="shop-name">${escapeHtml(flavor.location)}</div>
         </div>
-        
         <div class="flavor-name">${escapeHtml(flavor.flavor)}</div>
-        
         ${description ? 
             `<div class="flavor-description">${escapeHtml(description)}</div>` :
             `<div class="flavor-description no-description">No description available</div>`
         }
-        
         <div class="flavor-date">
             <i class="fas fa-calendar-alt"></i>
             ${date}
         </div>
     `;
-    
     return card;
 }
 
