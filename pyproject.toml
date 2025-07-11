@@ -25,7 +25,8 @@ dev = [
     "isort",
     "autoflake",
     "pip-audit",
-    "pre-commit"
+    "pre-commit",
+    "python-semantic-release"
 ]
 
 [tool.black]
@@ -56,3 +57,6 @@ show_missing = true
 
 [tool.pip-audit]
 ignore-vulns = []
+
+[tool.setuptools.packages.find]
+include = ["app"]
