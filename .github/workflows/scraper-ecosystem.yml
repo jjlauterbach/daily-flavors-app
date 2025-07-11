@@ -1,0 +1,45 @@
+name: Scraper Ecosystem Monitor
+
+on:
+  schedule:
+    # 13:30 UTC = 8:30 AM US Central (CDT)
+    - cron: '30 13 * * *'
+  workflow_dispatch:
+
+jobs:
+  ecosystem-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install -e .[dev]
+
+      - name: Run ecosystem scraper test
+        run: |
+          pytest --ecosystem --log-level=DEBUG --log-file=ecosystem_test.log
+
+      - name: Upload test log (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecosystem-test-log
+          path: .
+
+      - name: Send ntfy notification on failure
+        if: failure()
+        run: |
+          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN}}" \
+               -H "Title: Daily Flavors Scraper Ecosystem Test Failed" \
+               -H "Priority: urgent" \
+               -d "The daily scraper ecosystem test has failed. Check logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+               ${{ secrets.NTFY_TOPIC_URL }}

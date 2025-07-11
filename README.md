@@ -40,8 +40,8 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+pip install .            # For production
+pip install -e .[dev]    # For development/testing (includes test/lint tools)
 
 # Install Chrome and ChromeDriver (for Selenium UI tests)
 brew install --cask google-chrome
@@ -67,6 +67,18 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
   ```
 - **Lint, format, and security checks:**
   - `flake8`, `black`, `isort`, `autoflake`, `pip-audit` are all run in CI and pre-commit
+
+## Ecosystem Testing
+
+A dedicated ecosystem test suite checks that all scrapers are working against live sites. This is run daily via GitHub Actions and can be run locally:
+
+```bash
+pytest --ecosystem
+```
+
+- The ecosystem test is skipped by default unless you pass the `--ecosystem` flag.
+- The test will fail if any scraper fails to return a valid flavor for today.
+- The daily workflow will alert you if a site changes or breaks scraping.
 
 ## Continuous Integration
 

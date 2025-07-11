@@ -34,3 +34,28 @@ def pytest_sessionstart(session):
 def pytest_sessionfinish(session, exitstatus):
     # Tear down docker-compose after tests
     subprocess.run(["docker", "compose", "down"], check=False)
+
+
+def pytest_addoption(parser):
+    parser.addoption("--ecosystem", action="store_true", help="run ecosystem tests")
+
+
+def ecosystem(test_func):
+    """Decorator to skip ecosystem tests unless --ecosystem is given."""
+    import functools
+
+    import pytest
+
+    @functools.wraps(test_func)
+    def wrapper(*args, **kwargs):
+        config = getattr(pytest, "config", None) or getattr(args[0], "config", None)
+        # fallback for pytest's config
+        if config is None:
+            import _pytest.config
+
+            config = _pytest.config.Config.fromdictargs({})
+        if not config.getoption("--ecosystem"):
+            pytest.skip("need --ecosystem option to run")
+        return test_func(*args, **kwargs)
+
+    return wrapper
