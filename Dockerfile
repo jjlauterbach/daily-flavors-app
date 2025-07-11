@@ -25,9 +25,9 @@ RUN CHROME_VERSION=$(google-chrome --version | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\
     && chmod +x /usr/local/bin/chromedriver \
     && rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
  
-COPY ./requirements.txt /code/requirements.txt
- 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+COPY ./pyproject.toml /code/pyproject.toml
+
+RUN pip install --no-cache-dir --upgrade pip && pip install .[dev]
  
 COPY ./app /code/app
 COPY ./static /code/static

@@ -120,15 +120,18 @@ You can also use environment variables to override configuration:
 ### Build and Run
 
 ```bash
-# Build the container
+# Build the container (uses pyproject.toml, not requirements.txt)
 docker build -t daily-flavors-app .
 
-# Run the container
+# Run the container (default port 80 inside container)
 docker run -p 8080:80 daily-flavors-app
 
-# Or use Docker Compose
+# Or use Docker Compose (recommended for local dev)
 docker-compose up --build
 ```
+
+- The Dockerfile now uses `pyproject.toml` for dependency management. You do not need `requirements.txt`.
+- The image is automatically tagged with the release version and `latest` in CI/CD.
 
 ## Troubleshooting
 
@@ -143,8 +146,7 @@ docker-compose up --build
 2. **Module import errors**
    ```bash
    # Ensure all dependencies are installed
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt
+   pip install .[dev]
    ```
 
 3. **Encoding issues**
