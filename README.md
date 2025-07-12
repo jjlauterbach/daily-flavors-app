@@ -4,6 +4,7 @@ A web scraper application that collects daily flavor information from frozen cus
 
 ## Supported Locations
 
+- **Bubba's**
 - **Culver's**
 - **Kopp's Frozen Custard**
 - **Oscar's Frozen Custard**
