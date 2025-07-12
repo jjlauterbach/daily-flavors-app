@@ -60,3 +60,12 @@ ignore-vulns = []
 
 [tool.setuptools.packages.find]
 include = ["app"]
+
+# Configuration for python-semantic-release
+[tool.semantic_release]
+version_variable = ["pyproject.toml:version"]
+branch = "main"
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = ["chore(release):*"]
+
