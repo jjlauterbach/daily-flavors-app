@@ -62,6 +62,8 @@ jobs:
         uses: python-semantic-release/python-semantic-release@v10.2.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          changelog: false
+          commit: false
 
       - name: Upload to GitHub Release Assets
         uses: python-semantic-release/publish-action@v10.2.0
