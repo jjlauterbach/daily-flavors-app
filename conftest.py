@@ -43,18 +43,16 @@ def pytest_addoption(parser):
 def ecosystem(test_func):
     """Decorator to skip ecosystem tests unless --ecosystem is given."""
     import functools
+    import os
+    import sys
 
     import pytest
 
     @functools.wraps(test_func)
     def wrapper(*args, **kwargs):
-        config = getattr(pytest, "config", None) or getattr(args[0], "config", None)
-        # fallback for pytest's config
-        if config is None:
-            import _pytest.config
-
-            config = _pytest.config.Config.fromdictargs({}, [])
-        if not config.getoption("--ecosystem"):
+        # Detect --ecosystem in sys.argv or PYTEST_ADDOPTS
+        cli_args = sys.argv + os.environ.get("PYTEST_ADDOPTS", "").split()
+        if "--ecosystem" not in cli_args:
             pytest.skip("need --ecosystem option to run")
         return test_func(*args, **kwargs)
 
