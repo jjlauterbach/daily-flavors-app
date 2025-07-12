@@ -1,5 +1,6 @@
 [project]
 name = "daily-flavors-app"
+version = "1.0.1"
 description = "Daily frozen custard flavor scraper and web UI"
 requires-python = ">=3.11"
 dependencies = [
@@ -63,3 +64,4 @@ include = ["app"]
 # Configuration for python-semantic-release
 [tool.semantic_release]
 branch = "main"
+
