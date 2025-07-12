@@ -1,5 +1,7 @@
 # pytest plugin to bring up the app in Docker before running tests
+import os
 import subprocess
+import sys
 import time
 
 import requests
@@ -43,8 +45,6 @@ def pytest_addoption(parser):
 def ecosystem(test_func):
     """Decorator to skip ecosystem tests unless --ecosystem is given."""
     import functools
-    import os
-    import sys
 
     import pytest
 
