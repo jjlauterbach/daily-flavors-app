@@ -53,7 +53,7 @@ def ecosystem(test_func):
         if config is None:
             import _pytest.config
 
-            config = _pytest.config.Config.fromdictargs({})
+            config = _pytest.config.Config.fromdictargs({}, [])
         if not config.getoption("--ecosystem"):
             pytest.skip("need --ecosystem option to run")
         return test_func(*args, **kwargs)
