@@ -41,8 +41,7 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install .            # For production
-pip install -e .[dev]    # For development/testing (includes test/lint tools)
+pip install -e .[dev]
 
 # Install Chrome and ChromeDriver (for Selenium UI tests)
 brew install --cask google-chrome
