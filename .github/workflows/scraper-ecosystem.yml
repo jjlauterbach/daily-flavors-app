@@ -6,6 +6,9 @@ on:
     - cron: '30 13 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   ecosystem-test:
     runs-on: ubuntu-latest
