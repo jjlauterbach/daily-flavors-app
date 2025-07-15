@@ -1,0 +1,26 @@
+{
+  "name": "Daily Flavors DevContainer",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/chrome:1": {},
+    "ghcr.io/devcontainers/features/chromedriver:1": {}
+  },
+  "postCreateCommand": "pip install .[dev] && uvicorn app.main:app --reload --proxy-headers --host 0.0.0.0 --port 8000",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python3"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "forwardPorts": [8000],
+  "remoteUser": "vscode"
+}
