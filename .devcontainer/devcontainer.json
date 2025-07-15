@@ -7,7 +7,7 @@
     "ghcr.io/devcontainers/features/chrome:1": {},
     "ghcr.io/devcontainers/features/chromedriver:1": {}
   },
-  "postCreateCommand": "pip install .[dev]",
+  "postCreateCommand": "pip install -e .[dev]",
   "postStartCommand": "echo 'Dev environment ready! Run: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000'",
   "customizations": {
     "vscode": {
