@@ -2,10 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Release tag (optional, semantic-release will determine if omitted)'
-        required: false
 
 permissions:
   contents: read
@@ -58,7 +54,6 @@ jobs:
         run: |
           curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN }}" \
                -H "Title: Daily Flavors App Release Job Completed" \
-               -H "Priority: normal" \
                -d "The daily flavors app release job has completed successfully. Version: ${{ steps.release.outputs.version }}" \
                ${{ secrets.NTFY_TOPIC_URL }}
       
@@ -70,6 +65,7 @@ jobs:
                -H "Priority: high" \
                -d "The daily flavors app release job has failed. Check the workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
                ${{ secrets.NTFY_TOPIC_URL }}
+
 
   publish_docker:
     if: ${{ needs.release.outputs.released == 'true' }}
@@ -98,7 +94,6 @@ jobs:
         run: |
           curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN }}" \
                -H "Title: Daily Flavors App Docker Published" \
-               -H "Priority: normal" \
                -d "The daily flavors app Docker image has been published successfully. Version: ${{ needs.release.outputs.version }}. Check it out: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.release.outputs.tag }}" \
                ${{ secrets.NTFY_TOPIC_URL }}
       
@@ -110,5 +105,4 @@ jobs:
                -H "Priority: high" \
                -d "The daily flavors app Docker publish job has failed. Check the workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
                ${{ secrets.NTFY_TOPIC_URL }}
-
 
