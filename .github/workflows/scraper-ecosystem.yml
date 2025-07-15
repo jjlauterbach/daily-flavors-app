@@ -32,7 +32,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ecosystem-test-log
-          path: .
+          path: ecosystem_test.log
 
       - name: Send ntfy notification on failure
         if: failure()
