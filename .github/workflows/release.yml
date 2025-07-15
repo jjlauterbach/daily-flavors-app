@@ -56,7 +56,7 @@ jobs:
       - name: Notify on release success
         if: success()
         run: |
-          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN}}" \
+          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN }}" \
                -H "Title: Daily Flavors App Release Job Completed" \
                -H "Priority: normal" \
                -d "The daily flavors app release job has completed successfully. Version: ${{ steps.release.outputs.version }}" \
