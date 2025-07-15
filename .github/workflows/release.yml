@@ -105,7 +105,7 @@ jobs:
       - name: Notify on docker failure
         if: failure()
         run: |
-          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN}}" \
+          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN }}" \
                -H "Title: Daily Flavors App Docker Publish Failed" \
                -H "Priority: high" \
                -d "The daily flavors app Docker publish job has failed. Check the workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
