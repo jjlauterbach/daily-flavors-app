@@ -96,7 +96,7 @@ jobs:
       - name: Notify on docker success
         if: success()
         run: |
-          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN}}" \
+          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN }}" \
                -H "Title: Daily Flavors App Docker Published" \
                -H "Priority: normal" \
                -d "The daily flavors app Docker image has been published successfully. Version: ${{ needs.release.outputs.version }}. Check it out: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.release.outputs.tag }}" \
