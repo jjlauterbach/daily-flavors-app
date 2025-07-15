@@ -65,7 +65,7 @@ jobs:
       - name: Notify on release failure
         if: failure()
         run: |
-          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN}}" \
+          curl -H "Authorization: Bearer ${{ secrets.NTFY_TOKEN }}" \
                -H "Title: Daily Flavors App Release Job Failed" \
                -H "Priority: high" \
                -d "The daily flavors app release job has failed. Check the workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
