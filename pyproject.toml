@@ -38,7 +38,12 @@ profile = "black"
 line_length = 100
 
 [tool.flake8]
-ignore = "E501" # Ignore long lines, handled by Black 
+extend-ignore = [
+    "E501",  # Line too long, handled by Black
+    "E203",  # Whitespace before ':', handled by Black
+    "W503",  # Line break before binary operator, handled by Black
+    "F401",  # Unused import, can be false positive with Black formatting
+]
 exclude = ".git,__pycache__,.venv,venv,build,dist"
 
 [tool.pytest.ini_options]
