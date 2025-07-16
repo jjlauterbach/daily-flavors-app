@@ -132,6 +132,7 @@ def scrape_oscars():
 
             # Fallback: if no individual links found, split the text
             if not flavor_names:
+                normalized_flavor_text = full_flavor_text.lower()
                 if "-or-" in normalized_flavor_text:
                     flavor_names = [name.strip() for name in normalized_flavor_text.split("-or-")]
                 else:
@@ -145,7 +146,7 @@ def scrape_oscars():
                     try:
                         logger.info(f"OSCARS: Clicking link {i + 1} for flavor: {flavor_name}")
                         driver.execute_script("arguments[0].click();", flavor_links[i])
-                        time.sleep(2)
+                        time.sleep(1)
                         flavor_data = _extract_flavor_from_modal(driver, flavor_name)
                         if flavor_data:
                             flavors.append(flavor_data)
@@ -184,7 +185,7 @@ def scrape_oscars():
             expected_flavor = full_flavor_text  # Use the full text we found
             logger.info(f"OSCARS: Clicking single flavor link: {expected_flavor}")
             driver.execute_script("arguments[0].click();", flavor_link)
-            time.sleep(2)
+            time.sleep(1)
             flavor_data = _extract_flavor_from_modal(driver, expected_flavor)
             if flavor_data:
                 flavors.append(flavor_data)
