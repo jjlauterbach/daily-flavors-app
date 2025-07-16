@@ -132,10 +132,10 @@ def scrape_oscars():
 
             # Fallback: if no individual links found, split the text
             if not flavor_names:
-                if "-OR-" in full_flavor_text.upper():
-                    flavor_names = [name.strip() for name in full_flavor_text.split("-or-")]
+                if "-or-" in normalized_flavor_text:
+                    flavor_names = [name.strip() for name in normalized_flavor_text.split("-or-")]
                 else:
-                    flavor_names = [name.strip() for name in full_flavor_text.split(" or ")]
+                    flavor_names = [name.strip() for name in normalized_flavor_text.split(" or ")]
 
             logger.info(f"OSCARS: Found multiple flavors: {flavor_names}")
 
