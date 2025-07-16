@@ -138,9 +138,10 @@ def scrape_oscars():
 
             # Process each flavor by clicking its specific link
             for i, flavor_name in enumerate(flavor_names):
+                flavor_index = i + 1
                 if i < len(flavor_links):
                     try:
-                        logger.info(f"OSCARS: Clicking link {i + 1} for flavor: {flavor_name}")
+                        logger.info(f"OSCARS: Clicking link {flavor_index} for flavor: {flavor_name}")
                         driver.execute_script("arguments[0].click();", flavor_links[i])
                         time.sleep(1)
                         flavor_data = _extract_flavor_from_modal(driver, flavor_name)
