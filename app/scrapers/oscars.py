@@ -79,14 +79,10 @@ def scrape_oscars():
             logger.info(f"OSCARS: Cell {i} text: '{cell_text}'")
             logger.info(f"OSCARS: Cell {i} HTML: {cell_html}")
 
-            # Look for flavor keywords or multiple links in the cell
-            if cell_text and (
-                any(
-                    keyword in cell_text.upper()
-                    for keyword in ["BERRY", "CHOCOLATE", "VANILLA", "CUSTARD"]
-                )
-                or cell.find_elements(By.TAG_NAME, "a")
-            ):
+            # Select the first cell that contains non-empty text or any links
+            has_text = bool(cell_text)
+            has_links = bool(cell.find_elements(By.TAG_NAME, "a"))
+            if has_text or has_links:
                 full_flavor_text = cell_text
                 flavor_cell = cell
                 logger.info(f"OSCARS: Selected flavor cell text: '{cell_text}'")
@@ -122,7 +118,7 @@ def scrape_oscars():
             f"OSCARS: Has multiple links: {has_multiple_links} (count: {len(flavor_links)})"
         )
 
-        if has_or_text and has_multiple_links:
+        if has_or_text or has_multiple_links:
             # We have multiple flavors - extract individual flavor names from the links
             flavor_names = []
             for link in flavor_links:
