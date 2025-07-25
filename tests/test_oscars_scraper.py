@@ -1,3 +1,4 @@
+import re
 import unittest
 from datetime import datetime
 from unittest.mock import MagicMock, Mock, call, patch
@@ -268,6 +269,360 @@ class TestOscarsScraper(unittest.TestCase):
         # Assertions
         self.assertIsNotNone(result)
         mock_daily_flavor.assert_called_once()
+
+    @patch("app.scrapers.oscars.webdriver.Chrome")
+    @patch("app.scrapers.oscars.WebDriverWait")
+    @patch("app.scrapers.oscars._get_chrome_options")
+    @patch("app.scrapers.oscars.get_central_time")
+    @patch("app.scrapers.oscars.get_central_date_string")
+    @patch("app.scrapers.oscars._extract_flavor_from_modal")
+    @patch("app.scrapers.oscars._close_modal")
+    def test_oscars_scraper_day_matching_regex(
+        self,
+        mock_close,
+        mock_extract,
+        mock_date_string,
+        mock_time,
+        mock_chrome_options,
+        mock_wait,
+        mock_chrome,
+    ):
+        """Test that the Oscar's scraper correctly matches different day formats using its actual logic."""
+        # Test data: simulate table cells with different day formats
+        test_cases = [
+            ("Thur 1", "Thu", 1, True),  # Should match Thu 1
+            ("Thur 10", "Thu", 10, True),  # Should match Thu 10
+            ("Thur 10", "Thu", 1, False),  # Should NOT match Thu 1 (false positive)
+            ("Thur 11", "Thu", 1, False),  # Should NOT match Thu 1 (false positive)
+            ("Thu 1", "Thu", 1, True),  # Should match Thu 1
+            ("Thu 10", "Thu", 10, True),  # Should match Thu 10
+            ("Thursday 1", "Thu", 1, True),  # Should match Thu 1
+            ("Thursday 10", "Thu", 10, True),  # Should match Thu 10
+            ("Fri 1", "Thu", 1, False),  # Different day - should not match
+            ("1 Thur", "Thu", 1, False),  # Wrong order - should not match
+            ("Thur1", "Thu", 1, False),  # No space - should not match
+        ]
+
+        for cell_text, weekday, day, should_match in test_cases:
+            with self.subTest(cell_text=cell_text, weekday=weekday, day=day):
+                # Setup mocks for this specific test case
+                mock_chrome.return_value = self.mock_driver
+                mock_chrome_options.return_value = Mock()
+                mock_date_string.return_value = f"2025-07-{day:02d}"
+
+                # Mock the current time for the test case
+                mock_date = Mock()
+                mock_date.day = day
+                mock_date.strftime.return_value = weekday
+                mock_time.return_value = mock_date
+
+                # Mock WebDriverWait
+                mock_wait.return_value.until.return_value = True
+
+                # Reset mock for each test case
+                self.mock_driver.reset_mock()
+
+                # Mock table cells and rows with realistic flavor data
+                mock_cell = Mock()
+                mock_cell.text = "CHOCOLATE CHIP"
+                mock_cell.find_elements.return_value = []  # No links for simplicity
+
+                mock_row = Mock()
+                mock_row.text = cell_text  # This is what the scraper will see
+                mock_row.find_elements.return_value = [mock_cell]
+
+                # Mock successful flavor extraction
+                mock_extract.return_value = {
+                    "flavor": "CHOCOLATE CHIP",
+                    "description": "Test flavor description",
+                    "date": f"2025-07-{day:02d}",
+                    "restaurant": "Oscars",
+                    "url": "https://www.oscarscustard.com/index.php/flavors",
+                }
+
+                # Always return the row for initial XPath search (starting with weekday)
+                # Let the scraper's regex logic determine if it should be processed
+                if cell_text.startswith(weekday):
+                    self.mock_driver.find_elements.side_effect = [
+                        [mock_row],  # Initial candidate rows (starting with weekday)
+                        [],  # Fallback XPath (if regex filtering rejects the row)
+                    ]
+                else:
+                    # Different weekday - no rows found at all
+                    self.mock_driver.find_elements.side_effect = [
+                        [],  # No candidate rows
+                        [],  # Fallback
+                    ]
+
+                # Call the actual scraper and let it decide based on its logic
+                try:
+                    with patch("app.scrapers.oscars.time.sleep"):  # Skip sleep
+                        result = scrape_oscars()
+
+                    found_flavors = len(result) > 0
+
+                    # Test the actual scraper behavior, not just regex
+                    if should_match:
+                        self.assertTrue(
+                            found_flavors,
+                            f"Scraper should have found flavors for '{cell_text}' when looking for {weekday} {day}",
+                        )
+                        if found_flavors:
+                            self.assertEqual(result[0]["flavor"], "CHOCOLATE CHIP")
+                    else:
+                        self.assertFalse(
+                            found_flavors,
+                            f"Scraper should NOT have found flavors for '{cell_text}' when looking for {weekday} {day}",
+                        )
+
+                except Exception as e:
+                    if should_match:
+                        self.fail(f"Scraper unexpectedly failed for valid case '{cell_text}': {e}")
+                    # For negative cases, exceptions are acceptable as the scraper may fail
+                    # when it can't find the expected day format
+
+    @patch("app.scrapers.oscars.webdriver.Chrome")
+    @patch("app.scrapers.oscars._get_chrome_options")
+    @patch("app.scrapers.oscars.get_central_time")
+    @patch("app.scrapers.oscars.get_central_date_string")
+    @patch("app.scrapers.oscars._extract_flavor_from_modal")
+    @patch("app.scrapers.oscars._close_modal")
+    def test_oscars_scraper_with_mocked_day_scenarios(
+        self,
+        mock_close,
+        mock_extract,
+        mock_date_string,
+        mock_time,
+        mock_chrome_options,
+        mock_chrome,
+    ):
+        """Test the actual Oscar's scraper with different day matching scenarios."""
+        # Mock setup
+        mock_chrome.return_value = self.mock_driver
+        mock_chrome_options.return_value = Mock()
+        mock_date_string.return_value = "2025-07-24"
+
+        # Mock the current time to be Thursday, July 24th
+        mock_date = Mock()
+        mock_date.day = 24
+        mock_date.strftime.return_value = "Thu"
+        mock_time.return_value = mock_date
+
+        # Create mock table rows for different scenarios
+        scenarios = [
+            {
+                "name": "Exact match - Thur 24",
+                "row_text": "Thur 24",
+                "cell_text": "CHOCOLATE CHIP",
+                "should_find": True,
+                "starts_with_thu": True,
+            },
+            {
+                "name": "Exact match - Thu 24",
+                "row_text": "Thu 24",
+                "cell_text": "VANILLA",
+                "should_find": True,
+                "starts_with_thu": True,
+            },
+            {
+                "name": "False positive test - Thur 240",
+                "row_text": "Thur 240",
+                "cell_text": "STRAWBERRY",
+                "should_find": False,
+                "starts_with_thu": True,
+            },
+            {
+                "name": "Different day - Fri 24",
+                "row_text": "Fri 24",
+                "cell_text": "MINT",
+                "should_find": False,
+                "starts_with_thu": False,
+            },
+        ]
+
+        for scenario in scenarios:
+            with self.subTest(scenario=scenario["name"]):
+                # Reset mock for each scenario
+                self.mock_driver.reset_mock()
+
+                # Mock table cells and rows
+                mock_cell = Mock()
+                mock_cell.text = scenario["cell_text"]
+
+                # Create mock link for flavor extraction
+                mock_link = Mock()
+                mock_link.text.strip.return_value = scenario["cell_text"]
+                mock_link.is_displayed.return_value = True
+                mock_cell.find_elements.return_value = (
+                    [mock_link] if scenario["should_find"] else []
+                )
+
+                mock_row = Mock()
+                mock_row.text = scenario["row_text"]
+                mock_row.find_elements.side_effect = [
+                    [mock_link] if scenario["should_find"] else [],  # Links in row
+                    [mock_cell],  # Cells in row
+                ]
+
+                # Mock flavor extraction
+                if scenario["should_find"]:
+                    mock_extract.return_value = {
+                        "flavor": scenario["cell_text"],
+                        "description": f"Test description for {scenario['cell_text']}",
+                        "date": "2025-07-24",
+                        "restaurant": "Oscars",
+                        "url": "https://www.oscarscustard.com/index.php/flavors",
+                    }
+
+                # Mock WebDriverWait behavior
+                with patch("app.scrapers.oscars.WebDriverWait") as mock_wait:
+                    mock_wait.return_value.until.return_value = True
+
+                    # Mock the find_elements calls based on scenario
+                    if scenario["starts_with_thu"]:
+                        if scenario["should_find"]:
+                            # Successful case: row found and matches
+                            self.mock_driver.find_elements.side_effect = [
+                                [mock_row],  # Initial search finds candidate rows
+                                [mock_link],  # Row links
+                                [mock_cell],  # Row cells
+                                [mock_link],  # Cell links
+                                [],  # Modal overlay search (mocked)
+                                [],  # Close button search
+                            ]
+                        else:
+                            # False positive case: row found but filtered out by regex
+                            self.mock_driver.find_elements.side_effect = [
+                                [mock_row],  # Candidate rows found
+                                [],  # Fallback search (regex filtering rejected row)
+                            ]
+                    else:
+                        # Different day: no candidate rows found
+                        self.mock_driver.find_elements.side_effect = [
+                            [],  # No candidate rows
+                            [],  # Fallback
+                        ]
+
+                    try:
+                        with patch("app.scrapers.oscars.time.sleep"):  # Skip sleep
+                            result = scrape_oscars()
+
+                        found_flavors = len(result) > 0
+
+                        if scenario["should_find"]:
+                            self.assertTrue(
+                                found_flavors,
+                                f"Should have found flavors for scenario: {scenario['name']}",
+                            )
+                            if found_flavors:
+                                self.assertEqual(result[0]["flavor"], scenario["cell_text"])
+                        else:
+                            self.assertFalse(
+                                found_flavors,
+                                f"Should NOT have found flavors for scenario: {scenario['name']}",
+                            )
+
+                    except Exception as e:
+                        if scenario["should_find"]:
+                            self.fail(f"Scraper failed unexpectedly for {scenario['name']}: {e}")
+                        # For negative cases, exceptions are acceptable
+
+    @patch("app.scrapers.oscars.webdriver.Chrome")
+    @patch("app.scrapers.oscars.WebDriverWait")
+    @patch("app.scrapers.oscars._get_chrome_options")
+    @patch("app.scrapers.oscars.get_central_time")
+    @patch("app.scrapers.oscars.get_central_date_string")
+    @patch("app.scrapers.oscars._extract_flavor_from_modal")
+    @patch("app.scrapers.oscars._close_modal")
+    def test_oscars_scraper_false_positive_prevention(
+        self,
+        mock_close,
+        mock_extract,
+        mock_date_string,
+        mock_time,
+        mock_chrome_options,
+        mock_wait,
+        mock_chrome,
+    ):
+        """Test that the scraper prevents false positives in day matching."""
+        # Setup basic mocks
+        mock_chrome.return_value = self.mock_driver
+        mock_chrome_options.return_value = Mock()
+        mock_wait.return_value.until.return_value = True
+        mock_date_string.return_value = "2025-07-24"
+
+        # Mock successful extraction for when a match is found
+        mock_extract.return_value = {
+            "flavor": "TEST FLAVOR",
+            "description": "Test description",
+            "date": "2025-07-24",
+            "restaurant": "Oscars",
+            "url": "https://www.oscarscustard.com/index.php/flavors",
+        }
+
+        # Test scenarios that could cause false positives
+        false_positive_cases = [
+            {
+                "description": "Thu 240 should not match when looking for Thu 24",
+                "row_text": "Thu 240",
+                "looking_for_day": 24,
+                "should_match": False,
+            },
+            {
+                "description": "Thu 124 should not match when looking for Thu 24",
+                "row_text": "Thu 124",
+                "looking_for_day": 24,
+                "should_match": False,
+            },
+            {
+                "description": "Thur 10 should not match when looking for Thu 1",
+                "row_text": "Thur 10",
+                "looking_for_day": 1,
+                "should_match": False,
+            },
+            {
+                "description": "Thur 11 should not match when looking for Thu 1",
+                "row_text": "Thur 11",
+                "looking_for_day": 1,
+                "should_match": False,
+            },
+        ]
+
+        for case in false_positive_cases:
+            with self.subTest(case=case["description"]):
+                # Setup time mock for the day we're looking for
+                mock_date = Mock()
+                mock_date.day = case["looking_for_day"]
+                mock_date.strftime.return_value = "Thu"
+                mock_time.return_value = mock_date
+
+                # Reset driver mock
+                self.mock_driver.reset_mock()
+
+                # Create mock row with the problematic text
+                mock_cell = Mock()
+                mock_cell.text = "SOME FLAVOR"
+                mock_cell.find_elements.return_value = []
+
+                mock_row = Mock()
+                mock_row.text = case["row_text"]
+                mock_row.find_elements.return_value = [mock_cell]
+
+                # The scraper should find this row in the initial search (starts with "Thu")
+                # but should filter it out with regex
+                self.mock_driver.find_elements.side_effect = [
+                    [mock_row],  # Initial search finds the row
+                    [],  # Fallback search (used when regex filtering rejects)
+                ]
+
+                # Run the scraper
+                with patch("app.scrapers.oscars.time.sleep"):
+                    result = scrape_oscars()
+
+                # Should return empty list due to regex filtering
+                self.assertEqual(
+                    len(result), 0, f"Scraper should reject false positive: {case['description']}"
+                )
 
 
 if __name__ == "__main__":

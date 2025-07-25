@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 
 from bs4 import BeautifulSoup
@@ -46,9 +47,23 @@ def scrape_oscars():
         today = get_central_time()
         today_day = today.day
         today_weekday = today.strftime("%a")
-        today_display = f"{today_weekday} {today_day}"
-        calendar_xpath = f"//table//tr[td[contains(text(), '{today_display}')]]"
-        calendar_rows = driver.find_elements(By.XPATH, calendar_xpath)
+
+        # Use starts-with to handle different day abbreviations, then filter in Python for precision
+        calendar_xpath = f"//table//tr[td[starts-with(normalize-space(text()), '{today_weekday}')]]"
+        today_display = f"{today_weekday}* {today_day}"  # * indicates flexible matching
+
+        all_candidate_rows = driver.find_elements(By.XPATH, calendar_xpath)
+        calendar_rows = []
+
+        # Filter rows to find exact day match (avoid false positives like "Thu 1" matching day "10")
+        for row in all_candidate_rows:
+            row_text = row.text.strip()
+            # Check if the row contains the exact day pattern
+            day_pattern = rf"{today_weekday}\w*\s+\b{today_day}\b"
+            if re.search(day_pattern, row_text):
+                calendar_rows.append(row)
+                logger.info(f"OSCARS: Found matching row: '{row_text}'")
+
         if not calendar_rows:
             logger.warning(f"OSCARS: Could not find calendar row for {today_display}")
             driver.quit()
