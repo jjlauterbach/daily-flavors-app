@@ -59,7 +59,7 @@ def scrape_oscars():
         for row in all_candidate_rows:
             row_text = row.text.strip()
             # Check if the row contains the exact day pattern
-            day_pattern = rf"{today_weekday}\w*\s+{today_day}(?:\s|$)"
+            day_pattern = rf"{today_weekday}\w*\s+\b{today_day}\b"
             if re.search(day_pattern, row_text):
                 calendar_rows.append(row)
                 logger.info(f"OSCARS: Found matching row: '{row_text}'")
